@@ -83,7 +83,7 @@ functions:
 stepFunctions:
   stateMachines:
     pedidoWorkflow:
-      name: ${self:service}-pedido-workflow
+      name: ChinaWok-Pedidos-Processor
       definition:
         Comment: "Workflow de procesamiento de pedidos ChinaWok con asignación de empleados"
         StartAt: "InicializarContadores"
