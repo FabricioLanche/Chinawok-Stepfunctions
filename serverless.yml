@@ -1,5 +1,5 @@
 org: flanche
-service: chinawok-analitica
+service: chinawok-workflow
 
 provider:
   name: aws
