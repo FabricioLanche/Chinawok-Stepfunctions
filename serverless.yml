@@ -1,0 +1,58 @@
+org: flanche
+service: chinawok-analitica
+
+provider:
+  name: aws
+  runtime: python3.12
+  memorySize: 512
+  timeout: 300
+  region: us-east-1
+  
+  environment:
+    TABLE_USUARIOS: ${env:TABLE_USUARIOS, 'ChinaWok-Usuarios'}
+    TABLE_EMPLEADOS: ${env:TABLE_EMPLEADOS, 'ChinaWok-Empleados'}
+    TABLE_PEDIDOS: ${env:TABLE_PEDIDOS, 'ChinaWok-Pedidos'}
+    MODO_REALISTA: ${env:MODO_REALISTA, 'false'}
+  
+  iam:
+    role: arn:aws:iam::${env:AWS_ACCOUNT_ID}:role/LabRole
+
+functions:
+  # Funciones del workflow de Step Functions
+  cocinar:
+    handler: workflow/cocinar.lambda_handler
+    name: ${self:service}-workflow-cocinar
+    description: Asigna cocinero disponible y actualiza pedido a estado cocinando
+    timeout: 60
+  
+  empacar:
+    handler: workflow/empacar.lambda_handler
+    name: ${self:service}-workflow-empacar
+    description: Asigna despachador disponible y actualiza pedido a estado empacando
+    timeout: 60
+  
+  enviar:
+    handler: workflow/enviar.lambda_handler
+    name: ${self:service}-workflow-enviar
+    description: Asigna repartidor disponible y actualiza pedido a estado enviando
+    timeout: 60
+  
+  confirmar:
+    handler: workflow/confirmar.lambda_handler
+    name: ${self:service}-workflow-confirmar
+    description: Confirma entrega del pedido y actualiza historial del usuario
+    timeout: 60
+
+custom:
+  pythonRequirements:
+    dockerizePip: true  # Cambiar a true
+    slim: true
+
+package:
+  individually: false
+  exclude:
+    - node_modules/**
+    - .git/**
+    - .env
+    - __pycache__/**
+    - "*.pyc"
