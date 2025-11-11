@@ -1,4 +1,6 @@
 {
+  "_comment": "⚠️ ESTE ARCHIVO ES SOLO DOCUMENTACIÓN - La definición real del Step Function está en serverless.yml",
+  "_comment2": "Si necesitas modificar el workflow, edita el JSON en serverless.yml (resources.Resources.PedidoWorkflowStateMachine.DefinitionString)",
   "Comment": "Workflow de procesamiento de pedidos ChinaWok con asignación de empleados",
   "StartAt": "InicializarContadores",
   "States": {

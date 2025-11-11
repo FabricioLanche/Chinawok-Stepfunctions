@@ -13,6 +13,7 @@ provider:
     TABLE_EMPLEADOS: ${env:TABLE_EMPLEADOS, 'ChinaWok-Empleados'}
     TABLE_PEDIDOS: ${env:TABLE_PEDIDOS, 'ChinaWok-Pedidos'}
     MODO_REALISTA: ${env:MODO_REALISTA, 'false'}
+    STATE_MACHINE_ARN: !Ref PedidoWorkflowStateMachine
   
   iam:
     role: arn:aws:iam::${env:AWS_ACCOUNT_ID}:role/LabRole
@@ -25,6 +26,18 @@ custom:
     strip: false
 
 functions:
+  # Nueva función para iniciar el workflow
+  iniciarWorkflow:
+    handler: workflow/iniciar_workflow.lambda_handler
+    name: ${self:service}-iniciar-workflow
+    description: Inicia el workflow de Step Functions para un pedido
+    timeout: 30
+    events:
+      - http:
+          path: workflow/iniciar
+          method: post
+          cors: true
+  
   # Funciones del workflow de Step Functions
   cocinar:
     handler: workflow/cocinar.lambda_handler

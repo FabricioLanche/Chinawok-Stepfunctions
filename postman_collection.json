@@ -1,0 +1,307 @@
+{
+  "info": {
+    "name": "ChinaWok Workflow API",
+    "description": "Colección de endpoints para probar las funciones Lambda del workflow de pedidos ChinaWok",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "🚀 Workflow Completo",
+      "item": [
+        {
+          "name": "1. Iniciar Workflow Automático",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": \"{{local_id}}\",\n  \"pedido_id\": \"{{pedido_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflow/iniciar",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "iniciar"]
+            },
+            "description": "**PASO 1:** Inicia el workflow completo de Step Functions.\n\n✅ Esto ejecutará automáticamente:\n- Cocinar (espera 10s en demo)\n- Empacar (espera 10s en demo)\n- Enviar (espera 10s en demo)\n- Notificar Usuario y PAUSAR esperando confirmación\n\n⏱️ Espera ~30 segundos antes de pasar al siguiente paso."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Confirmar Recepción (Usuario)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": \"{{local_id}}\",\n  \"pedido_id\": \"{{pedido_id}}\",\n  \"confirmado\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflow/confirmar-recepcion",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "confirmar-recepcion"]
+            },
+            "description": "**PASO 2:** El usuario confirma que recibió su pedido.\n\n⚠️ Solo funciona después de que el workflow esté en estado 'EsperarConfirmacionUsuario'\n\n✅ Esto desbloqueará el Step Function que:\n- Liberará al repartidor\n- Finalizará el pedido (estado: recibido)\n- Agregará el pedido al historial del usuario"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔧 Testing Manual (Individual)",
+      "item": [
+        {
+          "name": "Cocinar - Asignar Cocinero",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": \"LOCAL001\",\n  \"pedido_id\": \"PED-{{$timestamp}}\",\n  \"usuario_correo\": \"usuario@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflow/cocinar",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "cocinar"]
+            },
+            "description": "Asigna un cocinero disponible y actualiza el pedido a estado 'cocinando'"
+          },
+          "response": []
+        },
+        {
+          "name": "Empacar - Asignar Despachador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": \"LOCAL001\",\n  \"pedido_id\": \"PED-1234567890\",\n  \"usuario_correo\": \"usuario@example.com\",\n  \"cocinero_dni\": \"12345678\",\n  \"estado\": \"cocinando\",\n  \"historial_estados\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflow/empacar",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "empacar"]
+            },
+            "description": "Libera al cocinero, asigna un despachador disponible y actualiza el pedido a estado 'empacando'"
+          },
+          "response": []
+        },
+        {
+          "name": "Enviar - Asignar Repartidor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": \"LOCAL001\",\n  \"pedido_id\": \"PED-1234567890\",\n  \"usuario_correo\": \"usuario@example.com\",\n  \"despachador_dni\": \"87654321\",\n  \"estado\": \"empacando\",\n  \"historial_estados\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflow/enviar",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "enviar"]
+            },
+            "description": "Libera al despachador, asigna un repartidor disponible y actualiza el pedido a estado 'enviando'"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirmar Entrega",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": \"LOCAL001\",\n  \"pedido_id\": \"PED-1234567890\",\n  \"usuario_correo\": \"usuario@example.com\",\n  \"repartidor_dni\": \"11223344\",\n  \"estado\": \"enviando\",\n  \"historial_estados\": [],\n  \"confirmacion_usuario\": {\n    \"confirmado\": true,\n    \"tipo\": \"manual\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflow/confirmar",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "confirmar"]
+            },
+            "description": "Confirma la entrega del pedido, libera al repartidor y actualiza el historial del usuario"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirmar Recepción Usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": \"LOCAL001\",\n  \"pedido_id\": \"PED-1234567890\",\n  \"confirmado\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflow/confirmar-recepcion",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "confirmar-recepcion"]
+            },
+            "description": "Endpoint para que el usuario confirme la recepción del pedido. Envía la señal al Step Function en espera."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Test Scenarios",
+      "item": [
+        {
+          "name": "Flujo Completo - Demo Mode",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": \"LOCAL001\",\n  \"pedido_id\": \"PED-{{$timestamp}}\",\n  \"usuario_correo\": \"test@chinawok.com\",\n  \"contadores\": {\n    \"intentos_cocinar\": 0,\n    \"intentos_empacar\": 0,\n    \"intentos_enviar\": 0,\n    \"modo_realista\": \"false\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflow/cocinar",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "cocinar"]
+            },
+            "description": "Inicia un pedido completo en modo demo (tiempos reducidos de 10 segundos)"
+          },
+          "response": []
+        },
+        {
+          "name": "Flujo Completo - Modo Realista",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": \"LOCAL001\",\n  \"pedido_id\": \"PED-{{$timestamp}}\",\n  \"usuario_correo\": \"test@chinawok.com\",\n  \"contadores\": {\n    \"intentos_cocinar\": 0,\n    \"intentos_empacar\": 0,\n    \"intentos_enviar\": 0,\n    \"modo_realista\": \"true\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflow/cocinar",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "cocinar"]
+            },
+            "description": "Inicia un pedido completo en modo realista (15min cocinar, 5min empacar, 30min enviar)"
+          },
+          "response": []
+        },
+        {
+          "name": "Test - Sin Empleados Disponibles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": \"LOCAL_SIN_EMPLEADOS\",\n  \"pedido_id\": \"PED-{{$timestamp}}\",\n  \"usuario_correo\": \"test@chinawok.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflow/cocinar",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "cocinar"]
+            },
+            "description": "Prueba el manejo de error cuando no hay empleados disponibles"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "Verificar Estado Cocinar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/workflow/cocinar",
+              "host": ["{{base_url}}"],
+              "path": ["workflow", "cocinar"]
+            },
+            "description": "Verifica que el endpoint esté disponible"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/dev",
+      "type": "string"
+    },
+    {
+      "key": "local_id",
+      "value": "72dbcd5f-ec16-44e8-ac1d-43cfe1dd31c9",
+      "type": "string"
+    },
+    {
+      "key": "pedido_id",
+      "value": "",
+      "type": "string",
+      "description": "Se generará automáticamente o usa un pedido_id existente"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Generar un nuevo pedido_id si está vacío",
+          "if (!pm.variables.get('pedido_id') || pm.variables.get('pedido_id') === '') {",
+          "    const uuid = require('uuid');",
+          "    pm.variables.set('pedido_id', uuid.v4());",
+          "    console.log('Nuevo pedido_id generado:', pm.variables.get('pedido_id'));",
+          "}"
+        ]
+      }
+    }
+  ]
+}
