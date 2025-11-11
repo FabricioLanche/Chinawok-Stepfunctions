@@ -4,9 +4,10 @@ import os
 
 sys.path.append(os.path.dirname(__file__))
 from utils.dynamodb_helper import (
+    obtener_pedido,
     buscar_empleado_disponible,
     marcar_empleado_ocupado,
-    actualizar_estado_pedido
+    actualizar_estado_pedido_con_empleado
 )
 from utils.json_encoder import json_dumps
 
@@ -16,10 +17,8 @@ def lambda_handler(event, context):
     
     # Manejar invocación desde API Gateway (HTTP) o Step Functions (directo)
     if 'body' in event:
-        # Invocación HTTP desde API Gateway
         body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
     else:
-        # Invocación directa desde Step Functions
         body = event
     
     local_id = body.get('local_id')
@@ -29,6 +28,9 @@ def lambda_handler(event, context):
         raise ValueError('Faltan parámetros requeridos: local_id o pedido_id')
     
     try:
+        # Obtener información del pedido
+        pedido = obtener_pedido(local_id, pedido_id)
+        
         # Buscar cocinero disponible
         cocinero = buscar_empleado_disponible(local_id, 'Cocinero')
         
@@ -39,7 +41,7 @@ def lambda_handler(event, context):
         marcar_empleado_ocupado(local_id, cocinero['dni'])
         
         # Actualizar estado del pedido
-        pedido_actualizado = actualizar_estado_pedido(
+        pedido_actualizado = actualizar_estado_pedido_con_empleado(
             local_id,
             pedido_id,
             'cocinando',
@@ -49,9 +51,11 @@ def lambda_handler(event, context):
         print(f"Pedido asignado a cocinero {cocinero['dni']}")
         
         result = {
-            **body,
-            **pedido_actualizado,
-            'cocinero_dni': cocinero['dni']
+            'local_id': local_id,
+            'pedido_id': pedido_id,
+            'usuario_correo': pedido.get('usuario_correo'),
+            'cocinero_dni': cocinero['dni'],
+            'estado': 'cocinando'
         }
         
         # Si fue invocado por HTTP, devolver respuesta HTTP

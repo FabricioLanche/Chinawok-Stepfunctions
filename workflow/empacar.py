@@ -4,10 +4,11 @@ import os
 
 sys.path.append(os.path.dirname(__file__))
 from utils.dynamodb_helper import (
+    obtener_pedido,
     buscar_empleado_disponible,
     marcar_empleado_ocupado,
     marcar_empleado_libre,
-    actualizar_estado_pedido
+    actualizar_estado_pedido_con_empleado
 )
 from utils.json_encoder import json_dumps
 
@@ -29,6 +30,9 @@ def lambda_handler(event, context):
         raise ValueError('Faltan parámetros requeridos: local_id o pedido_id')
     
     try:
+        # Obtener información del pedido
+        pedido = obtener_pedido(local_id, pedido_id)
+        
         # Liberar al cocinero
         if cocinero_dni:
             marcar_empleado_libre(local_id, cocinero_dni)
@@ -43,7 +47,7 @@ def lambda_handler(event, context):
         marcar_empleado_ocupado(local_id, despachador['dni'])
         
         # Actualizar estado del pedido
-        pedido_actualizado = actualizar_estado_pedido(
+        actualizar_estado_pedido_con_empleado(
             local_id,
             pedido_id,
             'empacando',
@@ -52,8 +56,13 @@ def lambda_handler(event, context):
         
         print(f"Pedido asignado a despachador {despachador['dni']}")
         
-        result = {**body, **pedido_actualizado, 'despachador_dni': despachador['dni']}
-        result.pop('cocinero_dni', None)
+        result = {
+            'local_id': local_id,
+            'pedido_id': pedido_id,
+            'usuario_correo': pedido.get('usuario_correo'),
+            'despachador_dni': despachador['dni'],
+            'estado': 'empacando'
+        }
         
         if 'body' in event:
             return {

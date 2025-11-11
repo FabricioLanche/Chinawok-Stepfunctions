@@ -4,8 +4,9 @@ import os
 
 sys.path.append(os.path.dirname(__file__))
 from utils.dynamodb_helper import (
+    obtener_pedido,
     marcar_empleado_libre,
-    actualizar_estado_pedido,
+    finalizar_pedido,
     agregar_pedido_a_usuario
 )
 from utils.json_encoder import json_dumps
@@ -23,23 +24,21 @@ def lambda_handler(event, context):
     local_id = body.get('local_id')
     pedido_id = body.get('pedido_id')
     repartidor_dni = body.get('repartidor_dni')
-    usuario_correo = body.get('usuario_correo')
     
     if not local_id or not pedido_id:
         raise ValueError('Faltan parámetros requeridos: local_id o pedido_id')
     
     try:
+        # Obtener información del pedido
+        pedido = obtener_pedido(local_id, pedido_id)
+        usuario_correo = pedido.get('usuario_correo')
+        
         # Liberar al repartidor
         if repartidor_dni:
             marcar_empleado_libre(local_id, repartidor_dni)
         
-        # Actualizar estado del pedido a recibido
-        pedido_actualizado = actualizar_estado_pedido(
-            local_id,
-            pedido_id,
-            'recibido',
-            None
-        )
+        # Finalizar pedido (actualizar estado a recibido y cerrar historial)
+        pedido_actualizado = finalizar_pedido(local_id, pedido_id)
         
         # Agregar pedido al historial del usuario
         if usuario_correo:
