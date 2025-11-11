@@ -99,10 +99,10 @@ functions:
           method: post
           cors: true
   
-  liberarEmpleados:
-    handler: workflow/liberar_empleados.lambda_handler
-    name: ${self:service}-workflow-liberar-empleados
-    description: Libera todos los empleados asignados a un pedido en caso de error
+  liberarPedido:
+    handler: workflow/liberar_pedido.lambda_handler
+    name: ${self:service}-workflow-liberar-pedido
+    description: Libera todos los empleados asignados a un pedido y resetea su estado
     timeout: 30
 
 resources:
@@ -115,7 +115,7 @@ resources:
         - EnviarLambdaFunction
         - NotificarUsuarioLambdaFunction
         - ConfirmarLambdaFunction
-        - LiberarEmpleadosLambdaFunction
+        - LiberarPedidoLambdaFunction
       Properties:
         StateMachineName: ChinaWok-Pedidos-Processor
         RoleArn: arn:aws:iam::${env:AWS_ACCOUNT_ID}:role/LabRole
@@ -244,7 +244,7 @@ resources:
                   "ServicioSaturado": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::lambda:invoke",
-                    "Parameters": {"FunctionName": "${LiberarEmpleadosLambdaArn}", "Payload": {"local_id.$": "$.local_id", "pedido_id.$": "$.pedido_id", "motivo": "servicio_saturado"}},
+                    "Parameters": {"FunctionName": "${LiberarPedidoLambdaArn}", "Payload": {"local_id.$": "$.local_id", "pedido_id.$": "$.pedido_id", "motivo": "servicio_saturado"}},
                     "ResultPath": "$.limpieza",
                     "Next": "ServicioSaturadoFinal",
                     "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ServicioSaturadoFinal"}]
@@ -261,7 +261,7 @@ resources:
               EnviarLambdaArn: !GetAtt EnviarLambdaFunction.Arn
               NotificarUsuarioLambdaArn: !GetAtt NotificarUsuarioLambdaFunction.Arn
               ConfirmarLambdaArn: !GetAtt ConfirmarLambdaFunction.Arn
-              LiberarEmpleadosLambdaArn: !GetAtt LiberarEmpleadosLambdaFunction.Arn
+              LiberarPedidoLambdaArn: !GetAtt LiberarPedidoLambdaFunction.Arn
 
   Outputs:
     StateMachineArn:

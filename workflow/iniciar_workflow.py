@@ -1,9 +1,13 @@
 import json
 import boto3
 import os
+import sys
 from datetime import datetime
 
+sys.path.append(os.path.dirname(__file__))
+
 stepfunctions = boto3.client('stepfunctions', region_name='us-east-1')
+lambda_client = boto3.client('lambda', region_name='us-east-1')
 
 def lambda_handler(event, context):
     """Lambda para iniciar el workflow de Step Functions"""
@@ -50,30 +54,44 @@ def lambda_handler(event, context):
         except Exception as e:
             print(f'Error verificando ejecuciones existentes: {str(e)}')
         
-        # Si hay una ejecución en curso, verificar su estado
+        # Si hay una ejecución en curso, detenerla y limpiar empleados
         if ejecucion_existente:
             execution_arn = ejecucion_existente['executionArn']
             
             try:
-                # Obtener detalles de la ejecución
-                exec_details = stepfunctions.describe_execution(
-                    executionArn=execution_arn
+                # Detener la ejecución anterior
+                print(f'Deteniendo ejecución anterior: {execution_arn}')
+                stepfunctions.stop_execution(
+                    executionArn=execution_arn,
+                    error='Reintento',
+                    cause='Se solicitó reiniciar el workflow para este pedido'
                 )
+                print('Ejecución anterior detenida')
                 
-                status = exec_details['status']
-                
-                # Si está corriendo, detenerla para reintentar
-                if status == 'RUNNING':
-                    print(f'Deteniendo ejecución anterior: {execution_arn}')
-                    stepfunctions.stop_execution(
-                        executionArn=execution_arn,
-                        error='Reintento',
-                        cause='Se solicitó reiniciar el workflow para este pedido'
+                # Invocar lambda para liberar empleados y resetear estado del pedido
+                try:
+                    print('Liberando empleados y reseteando pedido...')
+                    lambda_response = lambda_client.invoke(
+                        FunctionName=f'{os.environ.get("AWS_LAMBDA_FUNCTION_NAME", "").rsplit("-", 2)[0]}-workflow-liberar-pedido',
+                        InvocationType='RequestResponse',
+                        Payload=json.dumps({
+                            'local_id': local_id,
+                            'pedido_id': pedido_id,
+                            'motivo': 'reintento_workflow',
+                            'resetear_estado': True
+                        })
                     )
-                    print('Ejecución anterior detenida, iniciando nueva ejecución')
+                    
+                    result = json.loads(lambda_response['Payload'].read())
+                    print(f'Empleados liberados: {result.get("liberados", 0)}')
+                    print(f'Pedido reseteado: {result.get("pedido_reseteado", False)}')
+                    
+                except Exception as e:
+                    print(f'Error al liberar pedido: {str(e)}')
+                    # Continuar de todos modos, el error no es crítico
                 
             except Exception as e:
-                print(f'Error al verificar/detener ejecución: {str(e)}')
+                print(f'Error al detener ejecución: {str(e)}')
         
         # Nombre de ejecución único que incluye timestamp
         timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')

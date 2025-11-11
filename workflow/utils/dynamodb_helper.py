@@ -271,3 +271,39 @@ def agregar_pedido_a_usuario(usuario_correo, pedido_id):
     except Exception as e:
         print(f'Error agregando pedido al usuario: {str(e)}')
         raise
+
+def resetear_pedido_a_inicial(local_id, pedido_id):
+    """Resetea un pedido a su estado inicial para reintentar el workflow"""
+    table = dynamodb.Table(os.environ['TABLE_PEDIDOS'])
+    
+    try:
+        ahora = datetime.now().isoformat()
+        
+        # Resetear a estado procesando con historial limpio
+        response = table.update_item(
+            Key={
+                'local_id': local_id,
+                'pedido_id': pedido_id
+            },
+            UpdateExpression='SET estado = :estado, historial_estados = :historial, REMOVE task_token, esperando_confirmacion',
+            ExpressionAttributeValues={
+                ':estado': 'procesando',
+                ':historial': [
+                    {
+                        'estado': 'procesando',
+                        'hora_inicio': ahora,
+                        'hora_fin': ahora,
+                        'activo': True,
+                        'empleado': None
+                    }
+                ]
+            },
+            ReturnValues='ALL_NEW'
+        )
+        
+        print(f'Pedido {pedido_id} reseteado a estado inicial')
+        return response.get('Attributes')
+        
+    except Exception as e:
+        print(f'Error reseteando pedido: {str(e)}')
+        raise
