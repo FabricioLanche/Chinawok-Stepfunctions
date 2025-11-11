@@ -1,6 +1,7 @@
 import json
 import boto3
 import os
+from datetime import datetime
 
 stepfunctions = boto3.client('stepfunctions', region_name='us-east-1')
 
@@ -25,7 +26,6 @@ def lambda_handler(event, context):
         }
     
     try:
-        # ARN de la máquina de estados (se obtiene del environment)
         state_machine_arn = os.environ.get('STATE_MACHINE_ARN')
         
         if not state_machine_arn:
@@ -33,10 +33,56 @@ def lambda_handler(event, context):
         
         print(f'State Machine ARN: {state_machine_arn}')
         
+        # Verificar si hay ejecuciones en curso para este pedido
+        ejecucion_existente = None
+        try:
+            response = stepfunctions.list_executions(
+                stateMachineArn=state_machine_arn,
+                statusFilter='RUNNING',
+                maxResults=100
+            )
+            
+            for execution in response.get('executions', []):
+                if pedido_id in execution['name']:
+                    ejecucion_existente = execution
+                    print(f'Ejecución en curso encontrada: {execution["name"]}')
+                    break
+        except Exception as e:
+            print(f'Error verificando ejecuciones existentes: {str(e)}')
+        
+        # Si hay una ejecución en curso, verificar su estado
+        if ejecucion_existente:
+            execution_arn = ejecucion_existente['executionArn']
+            
+            try:
+                # Obtener detalles de la ejecución
+                exec_details = stepfunctions.describe_execution(
+                    executionArn=execution_arn
+                )
+                
+                status = exec_details['status']
+                
+                # Si está corriendo, detenerla para reintentar
+                if status == 'RUNNING':
+                    print(f'Deteniendo ejecución anterior: {execution_arn}')
+                    stepfunctions.stop_execution(
+                        executionArn=execution_arn,
+                        error='Reintento',
+                        cause='Se solicitó reiniciar el workflow para este pedido'
+                    )
+                    print('Ejecución anterior detenida, iniciando nueva ejecución')
+                
+            except Exception as e:
+                print(f'Error al verificar/detener ejecución: {str(e)}')
+        
+        # Nombre de ejecución único que incluye timestamp
+        timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+        execution_name = f'pedido-{pedido_id}-{timestamp}'
+        
         # Iniciar la ejecución del Step Function
         response = stepfunctions.start_execution(
             stateMachineArn=state_machine_arn,
-            name=f'pedido-{pedido_id}',
+            name=execution_name,
             input=json.dumps({
                 'local_id': local_id,
                 'pedido_id': pedido_id
@@ -46,28 +92,35 @@ def lambda_handler(event, context):
         execution_arn = response['executionArn']
         start_date = response['startDate'].isoformat()
         
-        print(f'Workflow iniciado exitosamente: {execution_arn}')
+        mensaje = 'Workflow iniciado exitosamente'
+        if ejecucion_existente:
+            mensaje = 'Workflow reiniciado exitosamente (ejecución anterior detenida)'
+        
+        print(f'{mensaje}: {execution_arn}')
         
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'Workflow iniciado exitosamente',
+                'message': mensaje,
                 'execution_arn': execution_arn,
-                'execution_name': f'pedido-{pedido_id}',
+                'execution_name': execution_name,
                 'pedido_id': pedido_id,
                 'local_id': local_id,
                 'start_date': start_date,
+                'reiniciado': ejecucion_existente is not None,
                 'console_url': f'https://console.aws.amazon.com/states/home?region=us-east-1#/executions/details/{execution_arn}'
             }),
             'headers': {'Content-Type': 'application/json'}
         }
         
     except stepfunctions.exceptions.ExecutionAlreadyExists:
+        # Este caso es muy raro ahora, pero lo manejamos por si acaso
         return {
             'statusCode': 409,
             'body': json.dumps({
-                'error': f'Ya existe una ejecución en curso para el pedido {pedido_id}',
-                'pedido_id': pedido_id
+                'error': f'Ya existe una ejecución con el mismo nombre para el pedido {pedido_id}',
+                'pedido_id': pedido_id,
+                'solucion': 'Por favor, intenta nuevamente en unos segundos'
             }),
             'headers': {'Content-Type': 'application/json'}
         }

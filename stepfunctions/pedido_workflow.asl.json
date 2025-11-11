@@ -9,7 +9,8 @@
       "Result": {
         "intentos_cocinar": 0,
         "intentos_empacar": 0,
-        "intentos_enviar": 0
+        "intentos_enviar": 0,
+        "modo_realista": false
       },
       "ResultPath": "$.contadores",
       "Next": "IntentarCocinar"
