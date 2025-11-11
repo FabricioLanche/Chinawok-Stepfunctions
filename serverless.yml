@@ -136,7 +136,10 @@ resources:
                     "Resource": "arn:aws:states:::lambda:invoke",
                     "Parameters": {
                       "FunctionName": "${CocinarLambdaArn}",
-                      "Payload.$": "$"
+                      "Payload": {
+                        "local_id.$": "$.local_id",
+                        "pedido_id.$": "$.pedido_id"
+                      }
                     },
                     "ResultPath": "$.resultado_cocinar",
                     "Retry": [{"ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 0}],
@@ -148,10 +151,9 @@ resources:
                     "Parameters": {
                       "local_id.$": "$.local_id",
                       "pedido_id.$": "$.pedido_id",
-                      "usuario_correo.$": "$.usuario_correo",
+                      "usuario_correo.$": "$.resultado_cocinar.Payload.usuario_correo",
                       "cocinero_dni.$": "$.resultado_cocinar.Payload.cocinero_dni",
                       "estado.$": "$.resultado_cocinar.Payload.estado",
-                      "historial_estados.$": "$.resultado_cocinar.Payload.historial_estados",
                       "contadores.$": "$.contadores"
                     },
                     "Next": "EsperarTiempoCocinar"
@@ -159,11 +161,14 @@ resources:
                   "IncrementarIntentosCocinar": {
                     "Type": "Pass",
                     "Parameters": {
-                      "intentos_cocinar.$": "States.MathAdd($.contadores.intentos_cocinar, 1)",
-                      "intentos_empacar.$": "$.contadores.intentos_empacar",
-                      "intentos_enviar.$": "$.contadores.intentos_enviar"
+                      "local_id.$": "$.local_id",
+                      "pedido_id.$": "$.pedido_id",
+                      "contadores": {
+                        "intentos_cocinar.$": "States.MathAdd($.contadores.intentos_cocinar, 1)",
+                        "intentos_empacar.$": "$.contadores.intentos_empacar",
+                        "intentos_enviar.$": "$.contadores.intentos_enviar"
+                      }
                     },
-                    "ResultPath": "$.contadores",
                     "Next": "VerificarMaximoIntentosCocinar"
                   },
                   "VerificarMaximoIntentosCocinar": {
@@ -182,7 +187,14 @@ resources:
                   "IntentarEmpacar": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::lambda:invoke",
-                    "Parameters": {"FunctionName": "${EmpacarLambdaArn}", "Payload.$": "$"},
+                    "Parameters": {
+                      "FunctionName": "${EmpacarLambdaArn}",
+                      "Payload": {
+                        "local_id.$": "$.local_id",
+                        "pedido_id.$": "$.pedido_id",
+                        "cocinero_dni.$": "$.cocinero_dni"
+                      }
+                    },
                     "ResultPath": "$.resultado_empacar",
                     "Retry": [{"ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 0}],
                     "Catch": [{"ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "IncrementarIntentosEmpacar"}],
@@ -193,10 +205,9 @@ resources:
                     "Parameters": {
                       "local_id.$": "$.local_id",
                       "pedido_id.$": "$.pedido_id",
-                      "usuario_correo.$": "$.usuario_correo",
+                      "usuario_correo.$": "$.resultado_empacar.Payload.usuario_correo",
                       "despachador_dni.$": "$.resultado_empacar.Payload.despachador_dni",
                       "estado.$": "$.resultado_empacar.Payload.estado",
-                      "historial_estados.$": "$.resultado_empacar.Payload.historial_estados",
                       "contadores.$": "$.contadores"
                     },
                     "Next": "EsperarTiempoEmpacar"
@@ -204,11 +215,14 @@ resources:
                   "IncrementarIntentosEmpacar": {
                     "Type": "Pass",
                     "Parameters": {
-                      "intentos_cocinar.$": "$.contadores.intentos_cocinar",
-                      "intentos_empacar.$": "States.MathAdd($.contadores.intentos_empacar, 1)",
-                      "intentos_enviar.$": "$.contadores.intentos_enviar"
+                      "local_id.$": "$.local_id",
+                      "pedido_id.$": "$.pedido_id",
+                      "contadores": {
+                        "intentos_cocinar.$": "$.contadores.intentos_cocinar",
+                        "intentos_empacar.$": "States.MathAdd($.contadores.intentos_empacar, 1)",
+                        "intentos_enviar.$": "$.contadores.intentos_enviar"
+                      }
                     },
-                    "ResultPath": "$.contadores",
                     "Next": "EsperarReintentoEmpleadoEmpacar"
                   },
                   "EsperarReintentoEmpleadoEmpacar": {"Type": "Wait", "Seconds": 30, "Next": "IntentarEmpacar"},
@@ -222,7 +236,14 @@ resources:
                   "IntentarEnviar": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::lambda:invoke",
-                    "Parameters": {"FunctionName": "${EnviarLambdaArn}", "Payload.$": "$"},
+                    "Parameters": {
+                      "FunctionName": "${EnviarLambdaArn}",
+                      "Payload": {
+                        "local_id.$": "$.local_id",
+                        "pedido_id.$": "$.pedido_id",
+                        "despachador_dni.$": "$.despachador_dni"
+                      }
+                    },
                     "ResultPath": "$.resultado_enviar",
                     "Retry": [{"ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 0}],
                     "Catch": [{"ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "IncrementarIntentosEnviar"}],
@@ -233,10 +254,9 @@ resources:
                     "Parameters": {
                       "local_id.$": "$.local_id",
                       "pedido_id.$": "$.pedido_id",
-                      "usuario_correo.$": "$.usuario_correo",
+                      "usuario_correo.$": "$.resultado_enviar.Payload.usuario_correo",
                       "repartidor_dni.$": "$.resultado_enviar.Payload.repartidor_dni",
                       "estado.$": "$.resultado_enviar.Payload.estado",
-                      "historial_estados.$": "$.resultado_enviar.Payload.historial_estados",
                       "contadores.$": "$.contadores"
                     },
                     "Next": "EsperarTiempoEnviar"
@@ -244,11 +264,14 @@ resources:
                   "IncrementarIntentosEnviar": {
                     "Type": "Pass",
                     "Parameters": {
-                      "intentos_cocinar.$": "$.contadores.intentos_cocinar",
-                      "intentos_empacar.$": "$.contadores.intentos_empacar",
-                      "intentos_enviar.$": "States.MathAdd($.contadores.intentos_enviar, 1)"
+                      "local_id.$": "$.local_id",
+                      "pedido_id.$": "$.pedido_id",
+                      "contadores": {
+                        "intentos_cocinar.$": "$.contadores.intentos_cocinar",
+                        "intentos_empacar.$": "$.contadores.intentos_empacar",
+                        "intentos_enviar.$": "States.MathAdd($.contadores.intentos_enviar, 1)"
+                      }
                     },
-                    "ResultPath": "$.contadores",
                     "Next": "EsperarReintentoEmpleadoEnviar"
                   },
                   "EsperarReintentoEmpleadoEnviar": {"Type": "Wait", "Seconds": 30, "Next": "IntentarEnviar"},
@@ -286,7 +309,15 @@ resources:
                   "ConfirmarEntrega": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::lambda:invoke",
-                    "Parameters": {"FunctionName": "${ConfirmarLambdaArn}", "Payload.$": "$"},
+                    "Parameters": {
+                      "FunctionName": "${ConfirmarLambdaArn}",
+                      "Payload": {
+                        "local_id.$": "$.local_id",
+                        "pedido_id.$": "$.pedido_id",
+                        "repartidor_dni.$": "$.repartidor_dni",
+                        "confirmacion_usuario.$": "$.confirmacion_usuario"
+                      }
+                    },
                     "ResultPath": "$.resultado_final",
                     "Next": "PedidoCompletado"
                   },
