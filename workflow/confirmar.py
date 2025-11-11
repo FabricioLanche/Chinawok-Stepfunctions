@@ -33,9 +33,14 @@ def lambda_handler(event, context):
         pedido = obtener_pedido(local_id, pedido_id)
         usuario_correo = pedido.get('usuario_correo')
         
-        # Liberar al repartidor
+        # Validar que el pedido esté en estado "enviando"
+        if pedido.get('estado') != 'enviando':
+            raise ValueError(f'El pedido debe estar en estado "enviando", actualmente está en "{pedido.get("estado")}"')
+        
+        # Liberar al repartidor explícitamente antes de finalizar
         if repartidor_dni:
             marcar_empleado_libre(local_id, repartidor_dni)
+            print(f'Repartidor {repartidor_dni} liberado')
         
         # Finalizar pedido (actualizar estado a recibido y cerrar historial)
         pedido_actualizado = finalizar_pedido(local_id, pedido_id)

@@ -31,6 +31,10 @@ def lambda_handler(event, context):
         # Obtener información del pedido
         pedido = obtener_pedido(local_id, pedido_id)
         
+        # Validar que el pedido esté en estado "procesando"
+        if pedido.get('estado') != 'procesando':
+            raise ValueError(f'El pedido debe estar en estado "procesando", actualmente está en "{pedido.get("estado")}"')
+        
         # Buscar cocinero disponible
         cocinero = buscar_empleado_disponible(local_id, 'Cocinero')
         

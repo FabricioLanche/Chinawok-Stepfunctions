@@ -33,9 +33,9 @@ def lambda_handler(event, context):
         # Obtener información del pedido
         pedido = obtener_pedido(local_id, pedido_id)
         
-        # Liberar al cocinero
-        if cocinero_dni:
-            marcar_empleado_libre(local_id, cocinero_dni)
+        # Validar que el pedido esté en estado "cocinando"
+        if pedido.get('estado') != 'cocinando':
+            raise ValueError(f'El pedido debe estar en estado "cocinando", actualmente está en "{pedido.get("estado")}"')
         
         # Buscar despachador disponible
         despachador = buscar_empleado_disponible(local_id, 'Despachador')
@@ -46,13 +46,19 @@ def lambda_handler(event, context):
         # Marcar despachador como ocupado
         marcar_empleado_ocupado(local_id, despachador['dni'])
         
-        # Actualizar estado del pedido
-        actualizar_estado_pedido_con_empleado(
+        # Actualizar estado del pedido (esto liberará automáticamente al cocinero)
+        pedido_actualizado = actualizar_estado_pedido_con_empleado(
             local_id,
             pedido_id,
             'empacando',
             despachador
         )
+        
+        # Liberar al cocinero explícitamente si hay uno
+        empleado_anterior_dni = pedido_actualizado.get('_empleado_anterior_dni')
+        if empleado_anterior_dni:
+            marcar_empleado_libre(local_id, empleado_anterior_dni)
+            print(f'Cocinero {empleado_anterior_dni} liberado')
         
         print(f"Pedido asignado a despachador {despachador['dni']}")
         

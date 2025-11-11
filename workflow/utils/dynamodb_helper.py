@@ -115,6 +115,28 @@ def marcar_empleado_libre(local_id, dni):
         print(f'Error marcando empleado como libre: {str(e)}')
         raise
 
+# Orden de estados válido
+ESTADOS_ORDEN = ['procesando', 'cocinando', 'empacando', 'enviando', 'recibido']
+
+def validar_transicion_estado(estado_actual, estado_nuevo):
+    """Valida que la transición de estado sea válida (solo al siguiente estado)"""
+    try:
+        indice_actual = ESTADOS_ORDEN.index(estado_actual)
+        indice_nuevo = ESTADOS_ORDEN.index(estado_nuevo)
+        
+        # Solo permitir avanzar al siguiente estado
+        if indice_nuevo != indice_actual + 1:
+            raise ValueError(
+                f'Transición inválida: no se puede pasar de "{estado_actual}" a "{estado_nuevo}". '
+                f'El siguiente estado válido es "{ESTADOS_ORDEN[indice_actual + 1]}"'
+            )
+        
+        return True
+        
+    except ValueError as e:
+        print(f'Error en validación de estado: {str(e)}')
+        raise
+
 def actualizar_estado_pedido_con_empleado(local_id, pedido_id, nuevo_estado, empleado):
     """Actualiza el estado de un pedido agregando nuevo historial con empleado"""
     table = dynamodb.Table(os.environ['TABLE_PEDIDOS'])
@@ -122,15 +144,24 @@ def actualizar_estado_pedido_con_empleado(local_id, pedido_id, nuevo_estado, emp
     try:
         ahora = datetime.now().isoformat()
         
-        # Obtener el pedido actual para actualizar el historial correctamente
+        # Obtener el pedido actual para validar y actualizar el historial
         pedido = obtener_pedido(local_id, pedido_id)
+        estado_actual = pedido.get('estado')
+        
+        # Validar que la transición sea válida
+        validar_transicion_estado(estado_actual, nuevo_estado)
+        
         historial_actual = pedido.get('historial_estados', [])
         
-        # Cerrar el estado activo anterior
+        # Cerrar el estado activo anterior y extraer DNI del empleado anterior
+        empleado_anterior_dni = None
         for estado in historial_actual:
             if estado.get('activo', False):
                 estado['activo'] = False
                 estado['hora_fin'] = ahora
+                # Extraer DNI del empleado que estaba en el estado anterior
+                if estado.get('empleado'):
+                    empleado_anterior_dni = estado['empleado'].get('dni')
         
         # Crear nuevo estado
         nuevo_historial = {
@@ -171,8 +202,13 @@ def actualizar_estado_pedido_con_empleado(local_id, pedido_id, nuevo_estado, emp
             ReturnValues='ALL_NEW'
         )
         
-        print(f'Pedido {pedido_id} actualizado a estado: {nuevo_estado}')
-        return response.get('Attributes')
+        print(f'Pedido {pedido_id} actualizado de "{estado_actual}" a "{nuevo_estado}"')
+        
+        # Retornar también el DNI del empleado anterior para liberarlo
+        result = response.get('Attributes')
+        result['_empleado_anterior_dni'] = empleado_anterior_dni
+        
+        return result
         
     except Exception as e:
         print(f'Error actualizando estado del pedido: {str(e)}')
