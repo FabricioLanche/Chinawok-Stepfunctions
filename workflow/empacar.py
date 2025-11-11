@@ -9,6 +9,7 @@ from utils.dynamodb_helper import (
     marcar_empleado_libre,
     actualizar_estado_pedido
 )
+from utils.json_encoder import json_dumps
 
 def lambda_handler(event, context):
     """Lambda para asignar despachador y empacar el pedido"""
@@ -57,7 +58,7 @@ def lambda_handler(event, context):
         if 'body' in event:
             return {
                 'statusCode': 200,
-                'body': json.dumps(result),
+                'body': json_dumps(result),
                 'headers': {'Content-Type': 'application/json'}
             }
         
