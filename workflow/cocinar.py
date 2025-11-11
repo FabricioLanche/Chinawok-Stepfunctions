@@ -13,8 +13,16 @@ def lambda_handler(event, context):
     """Lambda para asignar cocinero y comenzar a cocinar el pedido"""
     print(f'Iniciando proceso de cocinar: {json.dumps(event)}')
     
-    local_id = event.get('local_id')
-    pedido_id = event.get('pedido_id')
+    # Manejar invocación desde API Gateway (HTTP) o Step Functions (directo)
+    if 'body' in event:
+        # Invocación HTTP desde API Gateway
+        body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
+    else:
+        # Invocación directa desde Step Functions
+        body = event
+    
+    local_id = body.get('local_id')
+    pedido_id = body.get('pedido_id')
     
     if not local_id or not pedido_id:
         raise ValueError('Faltan parámetros requeridos: local_id o pedido_id')
@@ -39,12 +47,29 @@ def lambda_handler(event, context):
         
         print(f"Pedido asignado a cocinero {cocinero['dni']}")
         
-        return {
-            **event,
+        result = {
+            **body,
             **pedido_actualizado,
             'cocinero_dni': cocinero['dni']
         }
         
+        # Si fue invocado por HTTP, devolver respuesta HTTP
+        if 'body' in event:
+            return {
+                'statusCode': 200,
+                'body': json.dumps(result),
+                'headers': {'Content-Type': 'application/json'}
+            }
+        
+        return result
+        
     except Exception as e:
         print(f'Error en lambda cocinar: {str(e)}')
+        
+        if 'body' in event:
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'error': str(e)}),
+                'headers': {'Content-Type': 'application/json'}
+            }
         raise
