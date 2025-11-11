@@ -60,9 +60,7 @@ def buscar_empleado_disponible(local_id, rol):
     
     response = table.query(
         KeyConditionExpression=Key('local_id').eq(local_id),
-        FilterExpression=Attr('role').eq(rol) & (
-            Attr('ocupado').not_exists() | Attr('ocupado').eq(False)
-        ),
+        FilterExpression=Attr('role').eq(rol) & Attr('ocupado').eq(False),
         Limit=1
     )
     
