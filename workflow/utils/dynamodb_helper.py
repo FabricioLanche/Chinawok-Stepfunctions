@@ -141,11 +141,18 @@ def actualizar_estado_pedido_con_empleado(local_id, pedido_id, nuevo_estado, emp
         }
         
         if empleado:
+            # Convertir float a Decimal para DynamoDB
+            calificacion = empleado.get('calificacion_prom', 0)
+            if isinstance(calificacion, float):
+                calificacion = Decimal(str(calificacion))
+            elif isinstance(calificacion, str):
+                calificacion = Decimal(calificacion)
+            
             nuevo_historial['empleado'] = {
                 'dni': empleado['dni'],
                 'nombre_completo': f"{empleado['nombre']} {empleado['apellido']}",
                 'rol': empleado['role'].lower(),
-                'calificacion_prom': float(empleado.get('calificacion_prom', 0))
+                'calificacion_prom': calificacion
             }
         
         historial_actual.append(nuevo_historial)
