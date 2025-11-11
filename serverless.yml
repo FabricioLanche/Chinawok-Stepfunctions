@@ -13,7 +13,6 @@ provider:
     TABLE_EMPLEADOS: ${env:TABLE_EMPLEADOS, 'ChinaWok-Empleados'}
     TABLE_PEDIDOS: ${env:TABLE_PEDIDOS, 'ChinaWok-Pedidos'}
     MODO_REALISTA: ${env:MODO_REALISTA, 'false'}
-    STATE_MACHINE_ARN: !Ref PedidoWorkflowStateMachine
   
   iam:
     role: arn:aws:iam::${env:AWS_ACCOUNT_ID}:role/LabRole
@@ -32,6 +31,8 @@ functions:
     name: ${self:service}-iniciar-workflow
     description: Inicia el workflow de Step Functions para un pedido
     timeout: 30
+    environment:
+      STATE_MACHINE_ARN: !Ref PedidoWorkflowStateMachine
     events:
       - http:
           path: workflow/iniciar
@@ -104,6 +105,12 @@ resources:
   Resources:
     PedidoWorkflowStateMachine:
       Type: AWS::StepFunctions::StateMachine
+      DependsOn:
+        - CocinarLambdaFunction
+        - EmpacarLambdaFunction
+        - EnviarLambdaFunction
+        - NotificarUsuarioLambdaFunction
+        - ConfirmarLambdaFunction
       Properties:
         StateMachineName: ChinaWok-Pedidos-Processor
         RoleArn: arn:aws:iam::${env:AWS_ACCOUNT_ID}:role/LabRole
