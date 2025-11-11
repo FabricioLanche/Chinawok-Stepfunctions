@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timedelta
 from boto3.dynamodb.conditions import Key, Attr
 import random
+import json
 
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 
@@ -58,13 +59,53 @@ def buscar_empleado_disponible(local_id, rol):
     """Busca un empleado disponible por rol"""
     table = dynamodb.Table(os.environ['TABLE_EMPLEADOS'])
     
-    response = table.query(
-        KeyConditionExpression=Key('local_id').eq(local_id),
-        FilterExpression=Attr('role').eq(rol) & Attr('ocupado').eq(False),
-        Limit=1
-    )
-    
-    return response['Items'][0] if response['Items'] else None
+    try:
+        print(f'Buscando {rol} disponible en local {local_id}')
+        
+        response = table.query(
+            KeyConditionExpression=Key('local_id').eq(local_id),
+            FilterExpression=Attr('role').eq(rol) & Attr('ocupado').eq(False)
+        )
+        
+        empleados = response.get('Items', [])
+        
+        print(f'Empleados encontrados con role={rol} y ocupado=False: {len(empleados)}')
+        
+        if empleados:
+            print(f'Empleados disponibles: {json.dumps(empleados, default=str)}')
+        
+        if not empleados:
+            print(f'No se encontraron {rol}s disponibles en local {local_id}')
+            
+            # Debug: buscar todos los empleados del rol sin filtro de ocupado
+            response_all = table.query(
+                KeyConditionExpression=Key('local_id').eq(local_id),
+                FilterExpression=Attr('role').eq(rol)
+            )
+            todos = response_all.get('Items', [])
+            print(f'Total de {rol}s en el local (sin filtro ocupado): {len(todos)}')
+            if todos:
+                for emp in todos:
+                    print(f"  - {emp['dni']}: ocupado={emp.get('ocupado')} (tipo: {type(emp.get('ocupado'))})")
+            
+            return None
+        
+        # Retornar el empleado con mejor calificación
+        empleado = sorted(
+            empleados, 
+            key=lambda x: float(x.get('calificacion_prom', 0)), 
+            reverse=True
+        )[0]
+        
+        print(f'Empleado {rol} seleccionado: {empleado["dni"]} - {empleado["nombre"]} {empleado["apellido"]} (calificación: {empleado.get("calificacion_prom")})')
+        
+        return empleado
+        
+    except Exception as e:
+        print(f'Error buscando empleado: {str(e)}')
+        import traceback
+        print(f'Traceback: {traceback.format_exc()}')
+        raise
 
 def marcar_empleado_ocupado(local_id, dni):
     """Marca un empleado como ocupado"""
